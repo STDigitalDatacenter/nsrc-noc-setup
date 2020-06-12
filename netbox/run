@@ -1,0 +1,8 @@
+#!/bin/bash -eux
+set -o pipefail
+cd "$(dirname "$0")"
+
+# TODO: Populate the Netbox database
+
+systemctl enable postgresql redis-server netbox netbox-rq
+systemctl start postgresql redis-server netbox netbox-rq
