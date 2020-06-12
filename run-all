@@ -1,7 +1,7 @@
 #!/bin/bash -eu
 cd "$(dirname "$0")"
 
-for task in snmp cacti librenms nagios nfsen rancid smokeping prometheus grafana; do
+for task in snmp cacti librenms nagios nfsen rancid smokeping prometheus grafana syslog; do
   echo "==== $task ====" 
   sudo $task || echo "FAILED: $?"
 done

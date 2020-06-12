@@ -1,0 +1,14 @@
+#!/bin/bash -eux
+set -o pipefail
+cd "$(dirname "$0")"
+
+cp -p rsyslog.conf /etc/rsyslog.conf
+cp -p 25-promtail.conf 30-routerlogs.conf /etc/rsyslog.d/
+cp -p promtail.yaml /etc/loki/promtail.yaml
+
+mkdir -p /var/log/network
+chown syslog:adm /var/log/network
+chmod g+w /var/log/network
+
+systemctl enable rsyslog promtail loki
+systemctl restart rsyslog promtail loki
