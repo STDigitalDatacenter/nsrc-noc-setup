@@ -1,0 +1,37 @@
+#!/bin/bash -eux
+set -o pipefail
+cd "$(dirname "$0")"
+
+grep "^rancid-routers:" /etc/aliases || echo "rancid-routers: root" >>/etc/aliases
+grep "^rancid-admin-routers:" /etc/aliases || echo "rancid-admin-routers: root" >>/etc/aliases
+newaliases
+
+cp -p rancid.conf /etc/rancid/rancid.conf
+
+cp -p dot-cloginrc /var/lib/rancid/.cloginrc
+chown rancid:rancid /var/lib/rancid/.cloginrc
+chmod 600 /var/lib/rancid/.cloginrc
+
+if [ ! -d /var/lib/rancid/svn ]; then
+  sudo -u rancid /usr/lib/rancid/bin/rancid-cvs
+fi
+
+(
+cat <<EOS
+transit1.nren.ws.nsrc.org;cisco;up
+transit2.nren.ws.nsrc.org;cisco;up
+EOS
+for x in {1..6}; do
+echo "bdr1.campus$x.ws.nsrc.org;cisco;up"
+echo "core1.campus$x.ws.nsrc.org;cisco;up"
+done
+) > /var/lib/rancid/routers/router.db
+chown rancid:rancid /var/lib/rancid/routers/router.db
+
+cp rancid.cron /etc/cron.d/rancid
+
+# ViewVC
+
+sed -i -e 's%^#svn_roots = svn: /var/lib/svn%svn_roots = rancid: /var/lib/rancid/svn%' /etc/viewvc/viewvc.conf
+usermod -a -G rancid www-data
+systemctl restart apache2

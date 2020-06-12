@@ -1,0 +1,13 @@
+*** Probes ***
+
++ FPing
+
+binary = /usr/bin/fping
+
++ EchoPingHttp
+
++ DNS
+binary = /usr/bin/dig
+pings = 5
+step = 180
+lookup = www.nsrc.org

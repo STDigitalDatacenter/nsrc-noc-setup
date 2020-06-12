@@ -1,0 +1,1 @@
+0 0/3 * * * root /usr/local/bin/apt.sh >/var/lib/node_exporter/apt.prom.new && mv /var/lib/node_exporter/apt.prom.new /var/lib/node_exporter/apt.prom

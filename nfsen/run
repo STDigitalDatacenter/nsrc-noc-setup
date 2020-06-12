@@ -1,0 +1,8 @@
+#!/bin/bash -eux
+set -o pipefail
+cd "$(dirname "$0")"
+
+systemctl enable nfsen
+systemctl restart nfsen
+systemctl enable nfsen-ng
+systemctl restart nfsen-ng

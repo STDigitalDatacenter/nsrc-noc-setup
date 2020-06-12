@@ -1,0 +1,54 @@
+#!/bin/bash -eux
+set -o pipefail
+cd "$(dirname "$0")"
+
+cp -p prometheus.yml alertmanager.yml karma.yml blackbox.yml /etc/prometheus/
+
+mkdir -p /etc/prometheus/targets.d /etc/prometheus/rules.d
+cp -p targets.d/* /etc/prometheus/targets.d/
+cp -p rules.d/* /etc/prometheus/rules.d/
+
+sed -i -e 's/^if_mib:$/if_mib: \&if_mib/' /etc/prometheus/snmp/snmp.yml
+
+(
+sed '/^#### NSRC ####/Q' /etc/prometheus/snmp/snmp.yml
+cat <<EOS
+#### NSRC ####
+if_mib_v1:
+  <<: *if_mib
+  version: 1
+  timeout: 3s
+  retries: 3
+  auth:
+    community: NetManage
+if_mib_v2:
+  <<: *if_mib
+  version: 2
+  timeout: 3s
+  retries: 3
+  auth:
+    community: NetManage
+if_mib_v3:
+  <<: *if_mib
+  version: 3
+  timeout: 3s
+  retries: 3
+  auth:
+    security_level: authNoPriv
+    username: admin
+    password: NetManage
+    auth_protocol: SHA
+EOS
+) >/etc/prometheus/snmp/snmp.yml.new && mv /etc/prometheus/snmp/snmp.yml{.new,}
+
+cp -p node_exporter.default /etc/default/node_exporter
+mkdir -p /var/lib/node_exporter
+
+[ ! -f /usr/local/bin/apt.sh ] &&
+  curl -sSL https://raw.githubusercontent.com/prometheus-community/node-exporter-textfile-collector-scripts/master/apt.sh -o /usr/local/bin/apt.sh
+chmod +x /usr/local/bin/apt.sh
+/usr/local/bin/apt.sh >/var/lib/node_exporter/apt.prom
+cp -p prom-apt.cron /etc/cron.d/prom-apt
+
+systemctl enable prometheus node_exporter snmp_exporter blackbox_exporter alertmanager karma victoria-metrics
+systemctl restart prometheus node_exporter snmp_exporter blackbox_exporter alertmanager karma victoria-metrics

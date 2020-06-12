@@ -1,0 +1,13 @@
+alertmanager:
+  interval: 60s
+  servers:
+    - name: noc
+      uri: http://noc.ws.nsrc.org/alertmanager
+      timeout: 10s
+      proxy: true
+karma:
+  name: noc
+listen:
+  address: "127.0.0.1"
+  port: 8080
+  prefix: /karma/

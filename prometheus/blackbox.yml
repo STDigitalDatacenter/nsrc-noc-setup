@@ -1,0 +1,26 @@
+modules:
+  ping4:
+    prober: icmp
+    timeout: 3s
+    icmp:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+
+  # Check DNS recursor with query for "nsrc.org"
+  dns_udp4_nsrc.org:
+    prober: dns
+    timeout: 5s
+    dns:
+      transport_protocol: udp
+      preferred_ip_protocol: ip4
+      query_name: nsrc.org
+      query_type: A
+
+  # Check TLS certificates
+  tls_certificate:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      tls: true
+      tls_config: {}
+      preferred_ip_protocol: ip4

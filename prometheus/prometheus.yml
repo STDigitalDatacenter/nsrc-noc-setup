@@ -1,0 +1,108 @@
+# my global config
+global:
+  scrape_interval:     15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  # scrape_timeout is set to the global default (10s).
+
+  # Attach these labels to any time series or alerts when communicating with
+  # external systems (federation, remote storage, Alertmanager).
+  external_labels:
+    campus: noc
+
+# Archiving to VictoriaMetrics
+remote_write:
+  - url: http://noc.ws.nsrc.org:8428/vmetrics/api/v1/write
+    basic_auth:
+      username: admin
+      password: password123
+    queue_config:
+      max_samples_per_send: 10000
+      max_shards: 30
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - path_prefix: /alertmanager
+      static_configs:
+        - targets: ['localhost:9093']
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  - "/etc/prometheus/rules.d/*.yml"
+
+scrape_configs:
+  # A scrape configuration containing exactly one endpoint to scrape:
+  # Here it's Prometheus itself.
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'prometheus'
+
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+
+    metrics_path: '/prometheus/metrics'
+
+    static_configs:
+    - targets: ['localhost:9090']
+
+  - job_name: alertmanager
+    metrics_path: /alertmanager/metrics
+    static_configs:
+      - targets: ['localhost:9093']
+
+  - job_name: 'node'
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets.d/node.yml
+    relabel_configs:
+      # When __address__ consists of just a name or IP address,
+      # copy it to the "instance" label.
+      - source_labels: [__address__]
+        regex: '([^/]+)'
+        target_label: instance
+
+      # When __address__ is of the form "name/address", extract
+      # name to "instance" label and address to "__address__"
+      - source_labels: [__address__]
+        regex: '(.+)/(.+)'
+        target_label: instance
+        replacement: '${1}'
+      - source_labels: [__address__]
+        regex: '(.+)/(.+)'
+        target_label: __address__
+        replacement: '${2}'
+
+      # Append port number to __address__ so that scrape gets
+      # sent to the right port
+      - source_labels: [__address__]
+        target_label: __address__
+        replacement: '${1}:9100'
+
+  - job_name: 'snmp'
+    file_sd_configs:
+      - files:
+         - /etc/prometheus/targets.d/snmp.yml
+    metrics_path: /snmp
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [module]
+        target_label: __param_module
+      - target_label: __address__
+        replacement: 127.0.0.1:9116  # SNMP exporter
+
+  - job_name: 'blackbox'
+    file_sd_configs:
+      - files:
+         - /etc/prometheus/targets.d/blackbox.yml
+    metrics_path: /probe
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [module]
+        target_label: __param_module
+      - target_label: __address__
+        replacement: 127.0.0.1:9115  # blackbox exporter

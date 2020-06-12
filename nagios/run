@@ -1,0 +1,207 @@
+#!/bin/bash -eux
+set -o pipefail
+cd "$(dirname "$0")"
+
+# We are dual-stack.  Frig to add check_v46 for all pre-defined checks
+perl -npe '$_ = "$1/usr/lib/nagios/plugins/check_v46 -H $3 $2$4\n" if not /\s-[46]|--use-ipv|check_v46/ and /^(\s*command_line\s+)(.*)\s+-H\s+(\S+)(.*)$/' -i.orig /etc/nagios-plugins/config/*.cfg
+
+# Deploy a basic config
+(
+cat <<EOS
+# Infrastructure
+
+define host {
+  use		generic-host
+  host_name	gw
+  alias		Gateway Router
+  address	gw.ws.nsrc.org
+# parents	localhost
+  hostgroups	ubuntu-servers,snmp-servers
+}
+
+define host {
+  use		generic-host
+  host_name	sw
+  alias		Backbone Switch
+  address	sw.ws.nsrc.org
+  parents       gw
+  hostgroups	switches,snmp-servers
+}
+
+EOS
+
+for i in {1..2}; do
+cat <<EOS
+define host {
+  use		generic-host
+  host_name	ap$i
+  alias		Access Point $i
+  address	ap$i.ws.nsrc.org
+  parents	sw
+  hostgroups	aps,snmp-servers
+}
+
+EOS
+done
+
+for i in {1..2}; do
+cat <<EOS
+define host {
+  use		generic-host
+  host_name	transit$i.nren
+  alias		Transit Router $i
+  address	transit$i.nren.ws.nsrc.org
+  parents	gw
+  hostgroups	routers,snmp-servers
+}
+
+EOS
+done
+
+for x in {1..6}; do
+cat <<EOS
+# Campus $x
+
+define host {
+  use		generic-host
+  host_name	bdr1.campus$x
+  address	bdr1.campus$x.ws.nsrc.org
+  parents	transit1.nren
+  #parents	transit1.nren,transit2.nren
+  hostgroups	routers,ssh-servers,snmp-servers
+}
+
+define host {
+  use		generic-host
+  host_name	core1.campus$x
+  address	core1.campus$x.ws.nsrc.org
+  parents	bdr1.campus$x
+  hostgroups	routers,ssh-servers,snmp-servers
+}
+
+# Note: dist and edge switches are not directly reachable from the NOC.
+# But they would be reachable via NRPE or blackbox_exporter on srv1 (TODO).
+
+define host {
+  use		generic-host
+  host_name	srv1.campus$x
+  address	srv1.campus$x.ws.nsrc.org
+  parents	core1.campus$x
+  hostgroups	ubuntu-servers,ssh-servers,snmp-servers
+}
+
+EOS
+# host1-6 are containers on srv1, so srv1 is the parent
+for y in {1..6}; do
+cat <<EOS
+define host {
+  use		generic-host
+  host_name	host$y.campus$x
+  address	host$y.campus$x.ws.nsrc.org
+  parents	srv1.campus$x
+  hostgroups	ubuntu-servers,ssh-servers,snmp-servers,nagios-servers
+}
+
+EOS
+done
+done
+
+cat <<EOS
+# Hostgroups (ubuntu-servers is now included in the Ubuntu nagios3 package)
+
+define hostgroup {
+  hostgroup_name  routers
+  alias           Cisco Routers
+}
+
+define hostextinfo {
+        hostgroup_name   routers
+        notes            Cisco Routers
+        icon_image       remus/cisco7206.png
+        icon_image_alt   Cisco Router
+        vrml_image       cisco7206.png
+        statusmap_image  remus/cisco7206.gd2
+}
+
+define hostgroup {
+  hostgroup_name  aps
+  alias           Access Points
+}
+
+define hostextinfo {
+        hostgroup_name   aps
+        notes            Wireless Access Points
+        icon_image       werschler/breezecom.png
+        icon_image_alt   Wireless Access Points
+        vrml_image       breezecom.png
+        statusmap_image  werschler/breezecom.gd2
+}
+
+define hostgroup {
+  hostgroup_name  switches
+  alias           Switches
+}
+
+define hostextinfo {
+        hostgroup_name   switches
+        notes            Class switch
+        icon_image       cook/switch.png
+        icon_image_alt   Class switch
+        vrml_image       switch.png
+        statusmap_image  cook/switch.gd2
+}
+
+define hostgroup {
+  hostgroup_name  snmp-servers
+  alias           SNMP Servers
+}
+
+define service {
+        hostgroup_name                  snmp-servers
+        service_description             SNMP
+        check_command                   check_system!NetManage
+        use                             generic-service
+        notification_interval           0 ; set > 0 if you want to be renotified
+}
+
+define command {
+       command_name    check_system
+       # Check that sysDescr.0 responds
+       command_line    /usr/lib/nagios/plugins/check_snmp -H '\$HOSTADDRESS\$' -C '\$ARG1\$' -o .1.3.6.1.2.1.1.1.0
+}
+
+define hostgroup {
+  hostgroup_name  nagios-servers
+  alias           NAGIOS Servers
+}
+
+define service {
+  hostgroup_name                  nagios-servers
+  service_description             NAGIOS
+  check_command                   check_http_url_auth!/nagios3/!nagiosadmin:nsrc+ws
+  use                             generic-service
+}
+
+define command{
+  command_name    check_http_url_auth
+  command_line    /usr/lib/nagios/plugins/check_http -H '\$HOSTADDRESS\$' -u '\$ARG1\$' -a '\$ARG2\$'
+}
+
+# Service groups
+
+define servicegroup {
+  servicegroup_name   router_ssh
+  alias               Routers accepting SSH
+  members             bdr1.campus1,SSH,bdr1.campus2,SSH,bdr1.campus3,SSH,bdr1.campus4,SSH,bdr1.campus5,SSH,bdr1.campus6,SSH
+}
+
+define servicegroup {
+  servicegroup_name   router_snmp
+  alias               Routers accepting SNMP
+  members             bdr1.campus1,SNMP,bdr1.campus2,SNMP,bdr1.campus3,SNMP,bdr1.campus4,SNMP,bdr1.campus5,SNMP,bdr1.campus6,SNMP
+}
+EOS
+) >/etc/nagios3/conf.d/nmm.cfg
+
+systemctl enable nagios3
+systemctl restart nagios3

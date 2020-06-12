@@ -1,0 +1,14 @@
+#!/bin/bash -eux
+set -o pipefail
+cd "$(dirname "$0")"
+
+cp -p snmp.conf /etc/snmp/snmp.conf
+cp -p snmpd.conf /etc/snmp/snmpd.conf
+
+if ! grep "^rwuser admin" /usr/share/snmp/snmpd.conf; then
+  systemctl stop snmpd || true
+  net-snmp-create-v3-user -X AES -a SHA -A NetManage admin || true
+fi
+
+systemctl enable snmpd
+systemctl restart snmpd

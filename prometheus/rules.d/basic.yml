@@ -1,0 +1,27 @@
+groups:
+  - name: basic
+    interval: 1m
+    rules:
+      - alert: UpDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Scrape failed: host is down or scrape endpoint down/unreachable'
+
+      - alert: FilesystemReadOnly
+        expr: node_filesystem_readonly > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Filesystem is mounted read-only'
+
+      - alert: DiskFull
+        expr: node_filesystem_avail_bytes < 100000000 and node_filesystem_size_bytes > 100000000
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Filesystem full or less than 100MB free space'

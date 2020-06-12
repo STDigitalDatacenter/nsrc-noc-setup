@@ -1,0 +1,24 @@
+#!/bin/bash -eux
+set -o pipefail
+cd "$(dirname "$0")"
+
+# Add SNMPv3
+for host in localhost noc.ws.nsrc.org gw.ws.nsrc.org sw.ws.nsrc.org transit{1,}.nren.ws.nsrc.org \
+    bdr1.campus{1..6}.ws.nsrc.org core1.campus{1..6}.ws.nsrc.org; do
+  sudo -u librenms /opt/librenms/addhost.php -f "$host" authNoPriv v3 admin NetManage sha || {
+    rc="$?"
+    [ "$rc" -eq 3 ] || echo "$host: unexpected result: $rc"
+  }
+done
+
+# Add SNMPv1
+for host in ap{1..2}.ws.nsrc.org; do
+  sudo -u librenms /opt/librenms/addhost.php -f "$host" "NetManage" v1 || {
+    rc="$?"
+    [ "$rc" -eq 3 ] || echo "$host: unexpected result: $rc"
+  }
+done
+
+# Mark devices as down.  This is so that librenms doesn't attempt to discover
+# them (-h new) until the poller detects them as up.
+echo 'update devices set status=0;' | mysql -uroot -p'nsrc+ws' librenms

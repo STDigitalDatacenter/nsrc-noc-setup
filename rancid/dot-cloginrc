@@ -1,0 +1,5 @@
+add user *.nren.ws.nsrc.org nsrc
+add user *.ws.nsrc.org cndlab
+add password *.ws.nsrc.org lab-PW lab-EN
+add method * {ssh} {telnet}
+add sshcmd * {"ssh -o KexAlgorithms=+diffie-hellman-group1-sha1"}

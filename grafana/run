@@ -1,0 +1,13 @@
+#!/bin/bash -eux
+set -o pipefail
+cd "$(dirname "$0")"
+
+# THIS IS JUST A PLACEHOLDER
+#
+# TODO:
+# - set the initial grafana admin username/password
+# - set up data sources (prometheus, victoria-metrics)
+# - import prepared dashboard(s)
+
+systemctl enable grafana-server
+systemctl start grafana-server

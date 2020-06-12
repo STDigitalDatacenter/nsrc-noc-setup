@@ -1,0 +1,22 @@
+- labels:
+    module: if_mib_v1
+  targets:
+    - ap1.ws.nsrc.org
+    - ap2.ws.nsrc.org
+
+- labels:
+    module: if_mib_v3
+  targets:
+    - gw.ws.nsrc.org
+    - bdr1.campus1.ws.nsrc.org
+    - bdr1.campus2.ws.nsrc.org
+    - bdr1.campus3.ws.nsrc.org
+    - bdr1.campus4.ws.nsrc.org
+    - bdr1.campus5.ws.nsrc.org
+    - bdr1.campus6.ws.nsrc.org
+    - core1.campus1.ws.nsrc.org
+    - core1.campus2.ws.nsrc.org
+    - core1.campus3.ws.nsrc.org
+    - core1.campus4.ws.nsrc.org
+    - core1.campus5.ws.nsrc.org
+    - core1.campus6.ws.nsrc.org
