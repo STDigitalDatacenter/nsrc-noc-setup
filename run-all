@@ -2,6 +2,6 @@
 cd "$(dirname "$0")"
 
 for task in snmp cacti librenms nagios nfsen rancid smokeping prometheus grafana syslog netbox; do
-  echo "==== $task ====" 
-  sudo $task || echo "FAILED: $?"
+  echo "==== $task ===="
+  sudo $task/run || echo "FAILED: $?"
 done
