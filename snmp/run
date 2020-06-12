@@ -2,6 +2,9 @@
 set -o pipefail
 cd "$(dirname "$0")"
 
+# This makes snmpd less verbose in syslog
+sed -i 's/-Lsd/-LSwd/' /etc/default/snmpd
+
 cp -p snmp.conf /etc/snmp/snmp.conf
 cp -p snmpd.conf /etc/snmp/snmpd.conf
 
