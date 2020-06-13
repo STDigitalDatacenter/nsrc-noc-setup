@@ -10,14 +10,22 @@ GRAPH_TEMPLATE="$(/usr/share/cacti/cli/add_graphs.php --list-graph-templates | g
 SNMP_QUERY="$(/usr/share/cacti/cli/add_graphs.php --list-snmp-queries | grep -m1 "SNMP - Interface Statistics" | awk '{print $1}')"
 QUERY_TYPE="$(/usr/share/cacti/cli/add_graphs.php --list-query-types --snmp-query-id="$SNMP_QUERY" | grep -m1 "In/Out Bits (64-bit Counters)$" | awk '{print $1}')"
 
-for host in noc.ws.nsrc.org gw.ws.nsrc.org transit{1,2}.nren.ws.nsrc.org; do
+add () {
+  host="$1"
+  device_template_id="$2"
+
   res="$(/usr/share/cacti/cli/add_device.php --description="$host" \
-    --ip="$host" --version=2 --community=NetManage --template="$CISCO_DEVICE_TEMPLATE" || true)"
+    --ip="$host" --version=2 --community=NetManage --template="$device_template_id" || true)"
   echo "$host: $res"
   id="$(expr "$res" : '.*device-id: (\([0-9][0-9]*\))')"
-  if [ -n "$id" ]; then
-    IFTYPE="$(/usr/share/cacti/cli/add_graphs.php --list-snmp-values --host-id="$id" --snmp-query-id="$SNMP_QUERY" --snmp-field=ifType --snmp-value-regex=Ethernet | grep -m1 ethernetCsmacd || true)"
-    [ -n "$IFTYPE" ] && /usr/share/cacti/cli/add_graphs.php --host-id="$id" --graph-type=ds --graph-template-id="$GRAPH_TEMPLATE" \
-      --snmp-query-id="$SNMP_QUERY" --snmp-query-type-id="$QUERY_TYPE" --snmp-field=ifType --snmp-value="$IFTYPE" || true
-  fi
-done
+  [ -n "$id" ] || return
+  iftype="$(/usr/share/cacti/cli/add_graphs.php --list-snmp-values --host-id="$id" --snmp-query-id="$SNMP_QUERY" --snmp-field=ifType --snmp-value-regex=Ethernet | grep -m1 ethernetCsmacd || true)"
+  [ -n "$iftype" ] && /usr/share/cacti/cli/add_graphs.php --host-id="$id" --graph-type=ds --graph-template-id="$GRAPH_TEMPLATE" \
+      --snmp-query-id="$SNMP_QUERY" --snmp-query-type-id="$QUERY_TYPE" --snmp-field=ifType --snmp-value="$iftype" || true
+  true
+}
+
+add noc.ws.nsrc.org $LINUX_DEVICE_TEMPLATE
+add gw.ws.nsrc.org $LINUX_DEVICE_TEMPLATE
+add transit1.nren.ws.nsrc.org $CISCO_DEVICE_TEMPLATE
+add transit2.nren.ws.nsrc.org $CISCO_DEVICE_TEMPLATE
