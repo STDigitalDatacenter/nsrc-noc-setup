@@ -2,7 +2,7 @@
 set -o pipefail
 cd "$(dirname "$0")"
 
-cp -p Alerts General Probes /etc/smokeping/config.d/
+cp Alerts General Probes /etc/smokeping/config.d/
 
 (
 cat <<EOS

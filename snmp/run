@@ -5,8 +5,8 @@ cd "$(dirname "$0")"
 # This makes snmpd less verbose in syslog
 sed -i 's/-Lsd/-LSwd/' /etc/default/snmpd
 
-cp -p snmp.conf /etc/snmp/snmp.conf
-cp -p snmpd.conf /etc/snmp/snmpd.conf
+cp snmp.conf /etc/snmp/snmp.conf
+cp snmpd.conf /etc/snmp/snmpd.conf
 
 if ! grep "^rwuser admin" /usr/share/snmp/snmpd.conf; then
   systemctl stop snmpd || true

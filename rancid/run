@@ -6,9 +6,9 @@ grep "^rancid-routers:" /etc/aliases || echo "rancid-routers: root" >>/etc/alias
 grep "^rancid-admin-routers:" /etc/aliases || echo "rancid-admin-routers: root" >>/etc/aliases
 newaliases
 
-cp -p rancid.conf /etc/rancid/rancid.conf
+cp rancid.conf /etc/rancid/rancid.conf
 
-cp -p dot-cloginrc /var/lib/rancid/.cloginrc
+cp dot-cloginrc /var/lib/rancid/.cloginrc
 chown rancid:rancid /var/lib/rancid/.cloginrc
 chmod 600 /var/lib/rancid/.cloginrc
 
