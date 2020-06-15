@@ -1,6 +1,7 @@
 - targets:
     - gw.ws.nsrc.org
     - noc.ws.nsrc.org
+    - elk.ws.nsrc.org
     - srv1.campus1.ws.nsrc.org
     - srv2.campus1.ws.nsrc.org
     - srv3.campus1.ws.nsrc.org
