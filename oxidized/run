@@ -1,0 +1,13 @@
+#!/bin/bash -eux
+set -o pipefail
+cd "$(dirname "$0")"
+
+OXD="/var/lib/oxidized/.config/oxidized"
+mkdir -p "$OXD/configs" "$OXD/extra"
+cp config router.db "$OXD/"
+cp oxidized-report-git-commits "$OXD/extra"
+
+chown -R oxidized:oxidized /var/lib/oxidized
+
+systemctl enable oxidized
+systemctl start oxidized

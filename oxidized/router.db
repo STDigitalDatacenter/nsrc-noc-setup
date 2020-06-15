@@ -1,0 +1,14 @@
+transit1.nren.ws.nsrc.org:cisco:nsrc:lab-PW:lab-EN
+transit2.nren.ws.nsrc.org:cisco:nsrc:lab-PW:lab-EN
+bdr1.campus1.ws.nsrc.org:cisco:nmmlab:lab-PW:lab-EN
+bdr1.campus2.ws.nsrc.org:cisco:nmmlab:lab-PW:lab-EN
+bdr1.campus3.ws.nsrc.org:cisco:nmmlab:lab-PW:lab-EN
+bdr1.campus4.ws.nsrc.org:cisco:nmmlab:lab-PW:lab-EN
+bdr1.campus5.ws.nsrc.org:cisco:nmmlab:lab-PW:lab-EN
+bdr1.campus6.ws.nsrc.org:cisco:nmmlab:lab-PW:lab-EN
+core1.campus1.ws.nsrc.org:cisco:nmmlab:lab-PW:lab-EN
+core1.campus2.ws.nsrc.org:cisco:nmmlab:lab-PW:lab-EN
+core1.campus3.ws.nsrc.org:cisco:nmmlab:lab-PW:lab-EN
+core1.campus4.ws.nsrc.org:cisco:nmmlab:lab-PW:lab-EN
+core1.campus5.ws.nsrc.org:cisco:nmmlab:lab-PW:lab-EN
+core1.campus6.ws.nsrc.org:cisco:nmmlab:lab-PW:lab-EN

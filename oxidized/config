@@ -1,0 +1,62 @@
+---
+username: nmmlab
+password: lab-PW
+model: ios
+resolve_dns: true
+interval: 3600
+use_syslog: false
+debug: false
+threads: 30
+timeout: 20
+retries: 3
+prompt: !ruby/regexp /^([\w.@-]+[#>]\s?)$/
+rest: 127.0.0.1:8888/oxidized
+next_adds_job: false
+vars:
+  remove_secret: true
+  enable: lab-EN
+groups: {}
+models: {}
+pid: "/var/lib/oxidized/.config/oxidized/pid"
+crash:
+  directory: "/var/lib/oxidized/.config/oxidized/crashes"
+  hostnames: false
+stats:
+  history_size: 10
+input:
+  default: ssh, telnet
+  debug: false
+  ssh:
+    secure: false
+  ftp:
+    passive: true
+  utf8_encoded: true
+output:
+  default: git
+  git:
+    user: oxidized
+    email: sysadm@localhost
+    repo: "/var/lib/oxidized/.config/oxidized/oxidized.git"
+source:
+  default: csv
+  csv:
+    file: "/var/lib/oxidized/.config/oxidized/router.db"
+    delimiter: !ruby/regexp /:/
+    map:
+      name: 0
+      model: 1
+      username: 2
+      password: 3
+    vars_map:
+      enable: 4
+    gpg: false
+model_map:
+  juniper: junos
+  cisco: ios
+hooks:
+  email_output:
+    type: exec
+    events: [post_store]
+    cmd: /var/lib/oxidized/.config/oxidized/extra/oxidized-report-git-commits | mail -s "Oxidized updates for ${OX_NODE_NAME}" sysadm@localhost
+    async: true
+    timeout: 120
