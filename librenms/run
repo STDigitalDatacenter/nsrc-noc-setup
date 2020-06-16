@@ -22,3 +22,15 @@ done
 # Mark devices as down.  This is so that librenms doesn't attempt to discover
 # them (-h new) until the poller detects them as up.
 echo 'update devices set status=0;' | mysql -uroot -p'nsrc+ws' librenms
+
+(
+sed -e '/^#### NSRC NOC ####/Q' /opt/librenms/config.php
+# Beware $ signs
+cat <<'EOS'
+#### NSRC NOC ####
+# Oxidized integration
+$config['oxidized']['enabled']         = TRUE;
+$config['oxidized']['url']             = 'http://127.0.0.1:8888/oxidized';
+$config['oxidized']['features']['versioning'] = true;
+EOS
+) >/opt/librenms/config.php.new && mv /opt/librenms/config.php{.new,}
