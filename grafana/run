@@ -14,7 +14,7 @@ cd "$(dirname "$0")"
 cp dashboards.yaml /etc/grafana/provisioning/dashboards/
 
 mkdir -p /var/lib/grafana/dashboards
-cp Node-Exporter-Full.json /var/lib/grafana/dashboards/
+cp Node-Exporter-Full.json SNMP-Device-Summary.json SNMP-Interface-Detail.json /var/lib/grafana/dashboards/
 
 systemctl enable grafana-server
 systemctl restart grafana-server
