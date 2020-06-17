@@ -1,0 +1,14 @@
+# # config file version
+apiVersion: 1
+
+providers:
+ - name: 'default'
+   orgId: 1
+   folder: 'NOC Dashboards'
+   folderUid: 'b34058bc-90c0-4f86-be73-b255632b4267'
+   type: file
+   editable: true
+   udpateIntervalSeconds: 3600
+   allowUiUpdates: true
+   options:
+     path: /var/lib/grafana/dashboards

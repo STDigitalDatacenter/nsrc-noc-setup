@@ -7,7 +7,14 @@ cd "$(dirname "$0")"
 # TODO:
 # - set the initial grafana admin username/password
 # - set up data sources (prometheus, victoria-metrics)
-# - import prepared dashboard(s)
+
+
+# Import prepared dashboard(s)
+# https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards
+cp dashboards.yaml /etc/grafana/provisioning/dashboards/
+
+mkdir -p /var/lib/grafana/dashboards
+cp Node-Exporter-Full.json /var/lib/grafana/dashboards/
 
 systemctl enable grafana-server
-systemctl start grafana-server
+systemctl restart grafana-server
