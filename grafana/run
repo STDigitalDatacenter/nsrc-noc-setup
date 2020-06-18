@@ -12,6 +12,7 @@ cd "$(dirname "$0")"
 # Import prepared dashboard(s)
 # https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards
 cp dashboards.yaml /etc/grafana/provisioning/dashboards/
+cp datasources.yaml /etc/grafana/provisioning/datasources/
 
 mkdir -p /var/lib/grafana/dashboards
 cp Node-Exporter-Full.json SNMP-Device-Summary.json SNMP-Interface-Detail.json /var/lib/grafana/dashboards/
