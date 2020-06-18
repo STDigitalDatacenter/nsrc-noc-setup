@@ -46,11 +46,12 @@
       }
     ]
   },
+  "description": "Detailed interface stats from prometheus snmp exporter",
   "editable": true,
-  "gnetId": null,
+  "gnetId": 12492,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1592420276446,
+  "iteration": 1592472760111,
   "links": [],
   "panels": [
     {
@@ -473,7 +474,7 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
+        "w": 2,
         "x": 12,
         "y": 0
       },
@@ -568,8 +569,8 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
-        "x": 15,
+        "w": 2,
+        "x": 14,
         "y": 0
       },
       "id": 13,
@@ -626,7 +627,14 @@
       "title": "Speed",
       "type": "singlestat",
       "valueFontSize": "80%",
-      "valueMaps": [],
+      "valueMaps": [
+        {
+          "$$hashKey": "object:176",
+          "op": "=",
+          "text": "N/A",
+          "value": "0"
+        }
+      ],
       "valueName": "current"
     },
     {
@@ -649,8 +657,8 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 3,
-        "x": 18,
+        "w": 2,
+        "x": 16,
         "y": 0
       },
       "id": 14,
@@ -730,8 +738,8 @@
       "fontSize": "100%",
       "gridPos": {
         "h": 3,
-        "w": 3,
-        "x": 21,
+        "w": 6,
+        "x": 18,
         "y": 0
       },
       "id": 16,
@@ -749,7 +757,7 @@
           "alias": "",
           "align": "auto",
           "dateFormat": "YYYY-MM-DD HH:mm:ss",
-          "pattern": "ifType",
+          "pattern": "/ifType|ifAlias|ifDescr/",
           "type": "string"
         },
         {
@@ -794,7 +802,7 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 12,
         "x": 0,
         "y": 3
@@ -906,7 +914,7 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 12,
         "x": 12,
         "y": 3
@@ -1018,10 +1026,10 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 12,
         "x": 0,
-        "y": 13
+        "y": 12
       },
       "hiddenSeries": false,
       "id": 4,
@@ -1130,10 +1138,10 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 12,
         "x": 12,
-        "y": 13
+        "y": 12
       },
       "hiddenSeries": false,
       "id": 6,
@@ -1242,10 +1250,10 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 21
       },
       "hiddenSeries": false,
       "id": 7,
@@ -1354,10 +1362,10 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 12,
         "x": 12,
-        "y": 23
+        "y": 21
       },
       "hiddenSeries": false,
       "id": 5,
@@ -1476,8 +1484,8 @@
       {
         "current": {
           "selected": false,
-          "text": "Prometheus",
-          "value": "Prometheus"
+          "text": "prometheus",
+          "value": "prometheus"
         },
         "hide": 0,
         "includeAll": false,
@@ -1518,7 +1526,7 @@
         "allValue": null,
         "current": {},
         "datasource": "$source",
-        "definition": "query_result(ifOperStatus{instance=~\"$instance\"})",
+        "definition": "query_result(ifOperStatus{instance=\"$instance\"})",
         "hide": 0,
         "includeAll": false,
         "index": -1,
@@ -1526,7 +1534,7 @@
         "multi": false,
         "name": "ifName",
         "options": [],
-        "query": "query_result(ifOperStatus{instance=~\"$instance\"})",
+        "query": "query_result(ifOperStatus{instance=\"$instance\"})",
         "refresh": 1,
         "regex": "/.*ifName=\"([^\"]+)\".*/",
         "skipUrlSync": false,
@@ -1573,5 +1581,5 @@
   "variables": {
     "list": []
   },
-  "version": 3
+  "version": 4
 }
