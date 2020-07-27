@@ -102,9 +102,9 @@ menu = DNS
 title = DNS Latency Probes
 
 ++LocalDNS
-menu = 192.168.122.1
-title =  DNS Latency for 192.168.122.1
-host = 192.168.122.1
+menu = 100.64.0.1
+title =  DNS Latency for 100.64.0.1
+host = 100.64.0.1
 
 ++GoogleA
 menu = 8.8.8.8
