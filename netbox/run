@@ -21,3 +21,7 @@ sed -i -E \
   -e "s%^#?NAPALM_PASSWORD.*%NAPALM_PASSWORD = 'lab-PW'%" \
   -e "s%^#?NAPALM_ARGS.*%NAPALM_ARGS = {'secret': 'lab-EN'}%" \
   /opt/netbox/netbox/netbox/configuration.py
+
+# Install custom reports and scripts
+cp scripts/*.py /opt/netbox/netbox/scripts/
+cp reports/*.py /opt/netbox/netbox/reports/
