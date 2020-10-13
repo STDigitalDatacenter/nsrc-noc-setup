@@ -105,6 +105,7 @@ for name, color, vm_role in [
     ("Edge Switch", ColorChoices.COLOR_LIGHT_BLUE, False),
     ("Monitoring", ColorChoices.COLOR_ORANGE, True),
     ("Patching", ColorChoices.COLOR_BLACK, False),
+    ("VM Host", ColorChoices.COLOR_RED, False),
 ]:
     device_role[slugize(name)] = make(DeviceRole, dict(slug=slugize(name)), name=name, color=color, vm_role=vm_role)
 
@@ -536,5 +537,57 @@ for i in range(1,7):
         eth1 = make(VMInterface, dict(virtual_machine=vm, name="eth1"))
         ip4 = make(IPAddress, dict(address="100.64.0.%d/22" % (i*10 + j)),
                    assigned_object=eth1, dns_name="eth1.host%d.campus%d.ws.nsrc.org" % (j, i))
+
+# The physical kit
+manuf["intel"] = make(Manufacturer, dict(slug="intel"), name="Intel")
+dt = device_type["nuc6"] = make(DeviceType, dict(slug="nuc6"),
+    model="NUC6",
+    part_number="NUC6i7KYB",
+    manufacturer=manuf["intel"],
+    u_height=0,
+    is_full_depth=False,
+)
+make(InterfaceTemplate, dict(device_type=dt, name="eno1"),
+    type=InterfaceTypeChoices.TYPE_1GE_FIXED)
+make(InterfaceTemplate, dict(device_type=dt, name="wlp3s0"),
+    type=InterfaceTypeChoices.TYPE_80211AC)
+make(PowerPortTemplate, dict(device_type=dt, name="PSU"),
+     type=PowerPortTypeChoices.TYPE_IEC_C6)
+
+kvm = make(ClusterType, dict(slug="kvm"), name="kvm", description="Linux KVM hypervisor")
+cluster = make(Cluster, dict(name="gns3"), type=kvm, site=nren)
+d = device[0]["vtp"] = make(Device, dict(site=nren, name="vtp"),
+                           device_type=device_type["nuc6"],
+                           device_role=device_role["vm-host"],
+                           platform=platform["ubuntu"],
+                           cluster=cluster)
+intf = make(Interface, dict(device=d, name="virbr0"),
+            type=InterfaceTypeChoices.TYPE_VIRTUAL)
+ip4 = make(IPAddress, dict(address="100.64.0.1/22"),
+           assigned_object=intf, dns_name="vtp.ws.nsrc.org")
+d.primary_ip4 = ip4
+d.save()
+
+# Model the NOC as a VM (it is!)
+vm = make(VirtualMachine, dict(cluster=cluster, name="noc"),
+          platform=platform["ubuntu"], role=device_role["monitoring"],
+          vcpus=4, memory=2560, disk=40)
+ens3 = make(VMInterface, dict(virtual_machine=vm, name="ens3"))
+br0 = make(VMInterface, dict(virtual_machine=vm, name="br0"))
+ip4 = make(IPAddress, dict(address="100.64.0.250/22"),
+           assigned_object=br0, dns_name="noc.ws.nsrc.org")
+ip6 = make(IPAddress, dict(address="2001:DB8::250/64"),
+           assigned_object=br0, dns_name="noc.ws.nsrc.org")
+vm.primary_ip4 = ip4
+vm.primary_ip6 = ip6
+vm.save()
+
+# Netbox has a pretty stupid way of doing DHCP pools. See https://github.com/netbox-community/netbox/issues/834
+for x in range(1,4):
+    for y in range(0,256):
+        if x == 3 and y == 255:
+            break
+        ip4 = make(IPAddress, dict(address="100.64.%d.%d/22" % (x, y)),
+                   status=IPAddressStatusChoices.STATUS_DHCP)
 
 # End
