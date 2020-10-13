@@ -1,7 +1,10 @@
 from contextlib import suppress
 from django.db.utils import IntegrityError
 from utilities.choices import ColorChoices
-from dcim.choices import InterfaceTypeChoices, PortTypeChoices, PowerPortTypeChoices, ConsolePortTypeChoices, RackTypeChoices
+from dcim.choices import (
+    InterfaceTypeChoices, InterfaceModeChoices, PortTypeChoices, PowerPortTypeChoices, ConsolePortTypeChoices,
+    RackTypeChoices, CableTypeChoices, CableLengthUnitChoices,
+)
 from ipam.choices import PrefixStatusChoices, IPAddressStatusChoices, IPAddressRoleChoices
 
 # Find an item with the given unique filter.  If it exists, update;
@@ -316,6 +319,121 @@ for i in range(1,7):
         make(Prefix, dict(prefix="2001:db8:%d:%d::/64" % (i, vid)),
              site=site[i],
              description=description, vlan=vlan)
+
+## Cabling and tagging
+tt_rearport = ContentType.objects.get(app_label="dcim",model="rearport")
+tt_frontport = ContentType.objects.get(app_label="dcim",model="frontport")
+tt_interface = ContentType.objects.get(app_label="dcim",model="interface")
+for i in range(1,7):
+    # Rear port connections between patch panels
+    make(Cable, dict(
+            termination_a_type=tt_rearport,
+            termination_a_id=RearPort.objects.get(device=device[i]["pp-c1"], name="R1").pk,
+            termination_b_type=tt_rearport,
+            termination_b_id=RearPort.objects.get(device=device[i]["pp-b1-1"], name="R1").pk,
+         ), type=CableTypeChoices.TYPE_SMF_OS2, color=ColorChoices.COLOR_PURPLE)
+    make(Cable, dict(
+            termination_a_type=tt_rearport,
+            termination_a_id=RearPort.objects.get(device=device[i]["pp-c1"], name="R2").pk,
+            termination_b_type=tt_rearport,
+            termination_b_id=RearPort.objects.get(device=device[i]["pp-b2-1"], name="R1").pk,
+         ), type=CableTypeChoices.TYPE_SMF_OS2, color=ColorChoices.COLOR_PURPLE)
+    # bdr1 to core1
+    make(Cable, dict(
+            termination_a_type=tt_interface,
+            termination_a_id=Interface.objects.get(device=device[i]["bdr1"], name="GigabitEthernet0/1").pk,
+            termination_b_type=tt_interface,
+            termination_b_id=Interface.objects.get(device=device[i]["core1"], name="GigabitEthernet0/0").pk,
+         ), type=CableTypeChoices.TYPE_CAT5E, color=ColorChoices.COLOR_GREY)
+    # core1 to pp (change interfaces to SFP)
+    intf = make(Interface, dict(device=device[i]["core1"], name="GigabitEthernet0/1"),
+                type=InterfaceTypeChoices.TYPE_1GE_SFP, mode=InterfaceModeChoices.MODE_TAGGED)
+    intf.tagged_vlans.set(VLAN.objects.filter(site=site[i], vid__in=[10,11,12]))
+    make(Cable, dict(
+            termination_a_type=tt_interface,
+            termination_a_id=intf.pk,
+            termination_b_type=tt_frontport,
+            termination_b_id=FrontPort.objects.get(device=device[i]["pp-c1"], name="F1").pk,
+         ), type=CableTypeChoices.TYPE_SMF_OS2, color=ColorChoices.COLOR_YELLOW,
+            length=100, length_unit=CableLengthUnitChoices.UNIT_CENTIMETER)
+    intf = make(Interface, dict(device=device[i]["core1"], name="GigabitEthernet0/2"),
+                type=InterfaceTypeChoices.TYPE_1GE_SFP, mode=InterfaceModeChoices.MODE_TAGGED)
+    intf.tagged_vlans.set(VLAN.objects.filter(site=site[i], vid__in=[20,21,22]))
+    make(Cable, dict(
+            termination_a_type=tt_interface,
+            termination_a_id=intf.pk,
+            termination_b_type=tt_frontport,
+            termination_b_id=FrontPort.objects.get(device=device[i]["pp-c1"], name="F2").pk,
+         ), type=CableTypeChoices.TYPE_SMF_OS2, color=ColorChoices.COLOR_YELLOW,
+            length=100, length_unit=CableLengthUnitChoices.UNIT_CENTIMETER)
+    # core1 to srv
+    make(Cable, dict(
+            termination_a_type=tt_interface,
+            termination_a_id=Interface.objects.get(device=device[i]["core1"], name="GigabitEthernet0/3").pk,
+            termination_b_type=tt_interface,
+            termination_b_id=Interface.objects.get(device=device[i]["srv1"], name="ens3").pk,
+         ), type=CableTypeChoices.TYPE_CAT5E, color=ColorChoices.COLOR_GREY)
+    for b in range(1,3):
+        # dist1-bX to pp
+        intf = make(Interface, dict(device=device[i]["dist1-b%d" % b], name="GigabitEthernet0/0"),
+                    type=InterfaceTypeChoices.TYPE_1GE_SFP, mode=InterfaceModeChoices.MODE_TAGGED_ALL)
+        make(Cable, dict(
+            termination_a_type=tt_interface,
+            termination_a_id=intf.pk,
+            termination_b_type=tt_frontport,
+            termination_b_id=FrontPort.objects.get(device=device[i]["pp-b%d-1" % b], name="F1").pk,
+            ), type=CableTypeChoices.TYPE_SMF_OS2, color=ColorChoices.COLOR_YELLOW,
+            length=100, length_unit=CableLengthUnitChoices.UNIT_CENTIMETER)
+        # dist-bX to edge1-bX
+        make(Cable, dict(
+                termination_a_type=tt_interface,
+                termination_a_id=Interface.objects.get(device=device[i]["dist1-b%d" % b], name="GigabitEthernet1/0").pk,
+                termination_b_type=tt_interface,
+                termination_b_id=Interface.objects.get(device=device[i]["edge1-b%d" % b], name="GigabitEthernet0/0").pk,
+             ), type=CableTypeChoices.TYPE_CAT5E, color=ColorChoices.COLOR_GREY)
+        make(Cable, dict(
+                termination_a_type=tt_interface,
+                termination_a_id=Interface.objects.get(device=device[i]["dist1-b%d" % b], name="GigabitEthernet1/1").pk,
+                termination_b_type=tt_interface,
+                termination_b_id=Interface.objects.get(device=device[i]["edge1-b%d" % b], name="GigabitEthernet0/1").pk,
+             ), type=CableTypeChoices.TYPE_CAT5E, color=ColorChoices.COLOR_GREY)
+        # dist-bX to edge2-bX
+        make(Cable, dict(
+                termination_a_type=tt_interface,
+                termination_a_id=Interface.objects.get(device=device[i]["dist1-b%d" % b], name="GigabitEthernet2/0").pk,
+                termination_b_type=tt_interface,
+                termination_b_id=Interface.objects.get(device=device[i]["edge2-b%d" % b], name="GigabitEthernet0/0").pk,
+             ), type=CableTypeChoices.TYPE_CAT5E, color=ColorChoices.COLOR_GREY)
+        # create Port-channel1
+        lag = make(Interface, dict(device=device[i]["dist1-b%d" % b], name="Port-channel1"),
+                   type=InterfaceTypeChoices.TYPE_LAG, mode=InterfaceModeChoices.MODE_TAGGED_ALL)
+        for ifname in ["GigabitEthernet1/0", "GigabitEthernet1/1"]:
+            intf = Interface.objects.get(device=device[i]["dist1-b%d" % b], name=ifname)
+            intf.lag = lag
+            intf.save()
+        lag = make(Interface, dict(device=device[i]["edge1-b%d" % b], name="Port-channel1"),
+                   type=InterfaceTypeChoices.TYPE_LAG, mode=InterfaceModeChoices.MODE_TAGGED_ALL)
+        for ifname in ["GigabitEthernet0/0", "GigabitEthernet0/1"]:
+            intf = Interface.objects.get(device=device[i]["edge1-b%d" % b], name=ifname)
+            intf.lag = lag
+            intf.save()
+        # mark other interfaces as tagged
+        for dev, ifname in [
+            ("dist1-b%d" % b, "GigabitEthernet2/0"),
+            ("edge2-b%d" % b, "GigabitEthernet0/0"),
+        ]:
+            intf = Interface.objects.get(device=device[i][dev], name=ifname)
+            intf.mode = InterfaceModeChoices.MODE_TAGGED_ALL
+            intf.save()
+        # mark access ports
+        for e in range(1,3):        # which edge switch
+            for blk in range(1,3):  # which block of ports
+                v = VLAN.objects.get(site=site[i], vid=b*10 + blk)
+                for port in range(4):
+                    intf = Interface.objects.get(device=device[i]["edge%d-b%d" % (e, b)], name="GigabitEthernet%d/%d" % (blk, port))
+                    intf.mode = InterfaceModeChoices.MODE_ACCESS
+                    intf.untagged_vlan = v
+                    intf.save()
 
 ## Use virtualization model for hostX
 lxd = make(ClusterType, dict(slug="lxd"), name="lxd", description="lxd containers")
