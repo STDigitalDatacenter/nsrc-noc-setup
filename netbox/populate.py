@@ -6,6 +6,7 @@ from dcim.choices import (
     RackTypeChoices, CableTypeChoices, CableLengthUnitChoices,
 )
 from ipam.choices import PrefixStatusChoices, IPAddressStatusChoices, IPAddressRoleChoices
+from circuits.choices import CircuitTerminationSideChoices
 
 # Find an item with the given unique filter.  If it exists, update;
 # if it does not exist, create.  Return the object.
@@ -111,7 +112,6 @@ for name, color, vm_role in [
 site = {}
 rack = {}
 device = {}
-nren = make(Site, dict(slug="nren"), name="NREN", asn=65534)
 for i in range(1,7):
     print("--- Campus %d devices ---" % i)
     s = site[i] = make(Site, dict(slug="campus-%d" % i), name="Campus %d" % i, asn=i*10)
@@ -151,7 +151,7 @@ for i in range(1,7):
     ip4 = make(IPAddress, dict(address="100.68.0.%d/30" % ((i-1)*4 + 130)),
                status=IPAddressStatusChoices.STATUS_RESERVED,
                assigned_object=intf, dns_name="gi0-2.bdr1.campus%d.ws.nsrc.org" % i)
-    ip6 = make(IPAddress, dict(address="2001:db8:100:%d::1/127" % (i + 31)),
+    ip6 = make(IPAddress, dict(address="2001:db8:100:%d::1/127" % (i + 32)),
                status=IPAddressStatusChoices.STATUS_RESERVED,
                assigned_object=intf, dns_name="gi0-2.bdr1.campus%d.ws.nsrc.org" % i)
     intf = make(Interface, dict(device=d, name="Loopback0"),
@@ -251,6 +251,49 @@ for i in range(1,7):
         d.primary_ip6 = ip6
         d.save()
 
+## NREN
+nren = make(Site, dict(slug="nren"), name="NREN", asn=65534)
+device[0] = {}
+for n in range(1,3):
+    name = "transit%d-nren" % n
+    d = device[0][name] = make(Device, dict(site=nren, name=name),
+            device_type=device_type["iosv"],
+            device_role=device_role["border-router"],
+            platform=platform["ios-xe"])
+    intf = make(Interface, dict(device=d, name="GigabitEthernet0/0"),
+                type=InterfaceTypeChoices.TYPE_1GE_FIXED)
+    ip4 = make(IPAddress, dict(address="100.64.0.%d/22" % (n+1)),
+               assigned_object=intf, dns_name="gi0-0.transit%d.ws.nsrc.org" % n)
+    ip6 = make(IPAddress, dict(address="2001:db8::%d/64" % (n+1)),
+               assigned_object=intf, dns_name="gi0-0.transit%d.ws.nsrc.org" % n)
+    for i in range(1,7):
+        linknet = i + (n-1)*32
+        intf = make(Interface, dict(device=d, name="GigabitEthernet0/%d" % i),
+                    type=InterfaceTypeChoices.TYPE_1GE_FIXED)
+        ip4 = make(IPAddress, dict(address="100.68.0.%d/30" % (4*linknet - 3)),
+                   assigned_object=intf, dns_name="gi0-%d.transit%d.ws.nsrc.org" % (i, n))
+        ip6 = make(IPAddress, dict(address="2001:db8:100:%d::/127" % linknet),
+                   assigned_object=intf, dns_name="gi0-%d.transit%d.ws.nsrc.org" % (i, n))
+    intf = make(Interface, dict(device=d, name="Loopback0"),
+                type=InterfaceTypeChoices.TYPE_VIRTUAL)
+    ip4 = make(IPAddress, dict(address="100.68.0.%d/32" % (n+250)),
+               role=IPAddressRoleChoices.ROLE_LOOPBACK,
+               assigned_object=intf, dns_name="lo0.transit%d.ws.nsrc.org" % n)
+    ip6 = make(IPAddress, dict(address="2001:db8:100:ff::%d/128" % (n+250)),
+               role=IPAddressRoleChoices.ROLE_LOOPBACK,
+               assigned_object=intf, dns_name="lo0.transit%d.ws.nsrc.org" % n)
+    d.primary_ip4 = ip4
+    d.primary_ip6 = ip6
+    d.save()
+
+intf = make(Interface, dict(device=device[0]["transit1-nren"], name="GigabitEthernet0/0"))
+ip4 = make(IPAddress, dict(address="100.64.0.254/22"),
+           role=IPAddressRoleChoices.ROLE_SECONDARY,
+           assigned_object=intf, dns_name="transit.nren.ws.nsrc.org")
+ip6 = make(IPAddress, dict(address="2001:db8::254/64"),
+           role=IPAddressRoleChoices.ROLE_SECONDARY,
+           assigned_object=intf, dns_name="transit.nren.ws.nsrc.org")
+
 ## IPAM: vlans and subnets
 private = make(RIR, dict(slug="private"), name="Private", is_private=True)
 make(Aggregate, dict(prefix="192.168.0.0/16"), rir=private, description="RFC 1918 private use")
@@ -274,6 +317,12 @@ for i in range(1,7):
     make(Prefix, dict(prefix="2001:db8:100:%d::/127" % i),
          site=site[i],
          description="Campus %d NREN P2P" % i)
+    make(Prefix, dict(prefix="100.68.0.%d/30" % (((i-1)*4)+128)),
+         site=site[i],
+         description="Campus %d NREN backup P2P" % i)
+    make(Prefix, dict(prefix="2001:db8:100:%d::/127" % (i+32)),
+         site=site[i],
+         description="Campus %d NREN backup P2P" % i)
     make(Prefix, dict(prefix="100.68.%d.0/24" % i),
          site=site[i], status=PrefixStatusChoices.STATUS_CONTAINER,
          description="Campus %d public IPv4" %i)
@@ -324,6 +373,7 @@ for i in range(1,7):
 tt_rearport = ContentType.objects.get(app_label="dcim",model="rearport")
 tt_frontport = ContentType.objects.get(app_label="dcim",model="frontport")
 tt_interface = ContentType.objects.get(app_label="dcim",model="interface")
+tt_termination = ContentType.objects.get(app_label="circuits",model="circuittermination")
 for i in range(1,7):
     # Rear port connections between patch panels
     make(Cable, dict(
@@ -434,6 +484,34 @@ for i in range(1,7):
                     intf.mode = InterfaceModeChoices.MODE_ACCESS
                     intf.untagged_vlan = v
                     intf.save()
+
+## Circuits between NREN and campuses
+provider = make(Provider, dict(slug="pelican-crossing"),
+                name="Pelican Crossing", portal_url="https://nsrc.org/", comments="A fake provider")
+circuit_type = make(CircuitType, dict(slug="metro"),
+                name="Metro")
+for n in range(1,3):  # transit1-nren and transit2-nren
+    for i in range(1,7):
+        circuit = make(Circuit, dict(provider=provider, cid="campus%d-%02d" % (i, n)),
+                       type=circuit_type, commit_rate=1000000)
+        term_a = make(CircuitTermination, dict(circuit=circuit, term_side=CircuitTerminationSideChoices.SIDE_A),
+                      site=nren, port_speed=1000000, upstream_speed=1000000)
+        term_z = make(CircuitTermination, dict(circuit=circuit, term_side=CircuitTerminationSideChoices.SIDE_Z),
+                      site=site[i], port_speed=1000000, upstream_speed=1000000)
+        # A end to NREN router
+        make(Cable, dict(
+                termination_a_type=tt_interface,
+                termination_a_id=Interface.objects.get(device=device[0]["transit%d-nren" % n], name="GigabitEthernet0/%d" % i).pk,
+                termination_b_type=tt_termination,
+                termination_b_id=term_a.pk,
+            ))
+        # Z end to campus bdr1
+        make(Cable, dict(
+                termination_a_type=tt_interface,
+                termination_a_id=Interface.objects.get(device=device[i]["bdr1"], name="GigabitEthernet0/%d" % ((n-1)*2)).pk,
+                termination_b_type=tt_termination,
+                termination_b_id=term_z.pk,
+            ))
 
 ## Use virtualization model for hostX
 lxd = make(ClusterType, dict(slug="lxd"), name="lxd", description="lxd containers")
