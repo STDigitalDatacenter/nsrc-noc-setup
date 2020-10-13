@@ -3,7 +3,7 @@ from django.db.utils import IntegrityError
 from utilities.choices import ColorChoices
 from dcim.choices import (
     InterfaceTypeChoices, InterfaceModeChoices, PortTypeChoices, PowerPortTypeChoices, ConsolePortTypeChoices,
-    RackTypeChoices, CableTypeChoices, CableLengthUnitChoices,
+    RackTypeChoices, CableTypeChoices, CableLengthUnitChoices, PowerOutletTypeChoices, PowerFeedTypeChoices,
 )
 from ipam.choices import PrefixStatusChoices, IPAddressStatusChoices, IPAddressRoleChoices
 from circuits.choices import CircuitTerminationSideChoices
@@ -43,7 +43,8 @@ for i in range(4):
 
 for i in range(1, 3):
     make(PowerPortTemplate, dict(device_type=dt, name="PSU%d" % i),
-         type=PowerPortTypeChoices.TYPE_IEC_C14)
+         type=PowerPortTypeChoices.TYPE_IEC_C14,
+         allocated_draw=40, maximum_draw=80)
 
 make(ConsolePortTemplate, dict(device_type=dt, name="CONSOLE"),
      type=ConsolePortTypeChoices.TYPE_RJ45)
@@ -63,7 +64,8 @@ for i in range(4):
 
 for i in range(1, 3):
     make(PowerPortTemplate, dict(device_type=dt, name="PSU%d" % i),
-         type=PowerPortTypeChoices.TYPE_IEC_C14)
+         type=PowerPortTypeChoices.TYPE_IEC_C14,
+         allocated_draw=25, maximum_draw=50)
 
 make(ConsolePortTemplate, dict(device_type=dt, name="CONSOLE"),
      type=ConsolePortTypeChoices.TYPE_RJ45)
@@ -82,7 +84,8 @@ for i in range(2):
 
 for i in range(1, 3):
     make(PowerPortTemplate, dict(device_type=dt, name="PSU%d" % i),
-         type=PowerPortTypeChoices.TYPE_IEC_C14)
+         type=PowerPortTypeChoices.TYPE_IEC_C14,
+         allocated_draw=100, maximum_draw=150)
 
 # Fibre patch panel
 dt = device_type["patch-fibre-12"] = make(DeviceType, dict(slug="patch-fibre-12"),
@@ -97,6 +100,20 @@ for i in range(1, 13):
     fp = make(FrontPortTemplate, dict(device_type=dt, name="F%d" % i),
               rear_port=rp, rear_port_position=1, type=PortTypeChoices.TYPE_LC)
 
+# PDU
+dt = device_type["pdu-8-way"] = make(DeviceType, dict(slug="pdu-8-way"),
+    model="PDU 8-way",
+    manufacturer=manuf["generic"],
+    u_height=1,
+    is_full_depth=False,
+)
+pp = make(PowerPortTemplate, dict(device_type=dt, name="IN"),
+          type=PowerPortTypeChoices.TYPE_IEC_C14)
+for i in range(1,9):
+    make(PowerOutletTemplate, dict(device_type=dt, name="OUT%d" % i),
+         power_port=pp, type=PowerOutletTypeChoices.TYPE_IEC_C13)
+
+# Device roles
 device_role = {}
 for name, color, vm_role in [
     ("Border Router", ColorChoices.COLOR_DARK_GREEN, False),
@@ -104,8 +121,9 @@ for name, color, vm_role in [
     ("Distribution Switch", ColorChoices.COLOR_BLUE, False),
     ("Edge Switch", ColorChoices.COLOR_LIGHT_BLUE, False),
     ("Monitoring", ColorChoices.COLOR_ORANGE, True),
-    ("Patching", ColorChoices.COLOR_BLACK, False),
+    ("Patching", ColorChoices.COLOR_DARK_GREY, False),
     ("VM Host", ColorChoices.COLOR_RED, False),
+    ("Power Distribution", ColorChoices.COLOR_BLACK, False),
 ]:
     device_role[slugize(name)] = make(DeviceRole, dict(slug=slugize(name)), name=name, color=color, vm_role=vm_role)
 
@@ -375,6 +393,9 @@ tt_rearport = ContentType.objects.get(app_label="dcim",model="rearport")
 tt_frontport = ContentType.objects.get(app_label="dcim",model="frontport")
 tt_interface = ContentType.objects.get(app_label="dcim",model="interface")
 tt_termination = ContentType.objects.get(app_label="circuits",model="circuittermination")
+tt_powerport = ContentType.objects.get(app_label="dcim",model="powerport")
+tt_poweroutlet = ContentType.objects.get(app_label="dcim",model="poweroutlet")
+tt_powerfeed = ContentType.objects.get(app_label="dcim",model="powerfeed")
 for i in range(1,7):
     # Rear port connections between patch panels
     make(Cable, dict(
@@ -538,6 +559,90 @@ for i in range(1,7):
         ip4 = make(IPAddress, dict(address="100.64.0.%d/22" % (i*10 + j)),
                    assigned_object=eth1, dns_name="eth1.host%d.campus%d.ws.nsrc.org" % (j, i))
 
+## Power
+for i in range(1,7):
+    print("--- Campus %d power ---" % i)
+    # Power panel (one per campus)
+    panel = make(PowerPanel, dict(site=site[i], name="Campus %d main breaker" % i))
+    # Core
+    feed_a = make(PowerFeed, dict(power_panel=panel, name="c1-a"),
+                  rack=rack[i]["c1"], type=PowerFeedTypeChoices.TYPE_PRIMARY,
+                  voltage=230, amperage=13, max_utilization=90)
+    feed_b = make(PowerFeed, dict(power_panel=panel, name="c1-b"),
+                  rack=rack[i]["c1"], type=PowerFeedTypeChoices.TYPE_REDUNDANT,
+                  voltage=230, amperage=13, max_utilization=90)
+    pdu_a = device[i]["pdu-c1-a"] = make(Device, dict(site=site[i], name="pdu-c1-a"),
+                              rack=rack[i]["c1"], position=2, face="rear",
+                              device_type=device_type["pdu-8-way"],
+                              device_role=device_role["power-distribution"])
+    pdu_b = device[i]["pdu-c1-b"] = make(Device, dict(site=site[i], name="pdu-c1-b"),
+                              rack=rack[i]["c1"], position=1, face="rear",
+                              device_type=device_type["pdu-8-way"],
+                              device_role=device_role["power-distribution"])
+    make(Cable, dict(
+            termination_a_type=tt_powerfeed,
+            termination_a_id=feed_a.pk,
+            termination_b_type=tt_powerport,
+            termination_b_id=PowerPort.objects.get(device=pdu_a, name="IN").pk,
+         ), type=CableTypeChoices.TYPE_POWER, color=ColorChoices.COLOR_BLACK)
+    make(Cable, dict(
+            termination_a_type=tt_powerfeed,
+            termination_a_id=feed_b.pk,
+            termination_b_type=tt_powerport,
+            termination_b_id=PowerPort.objects.get(device=pdu_b, name="IN").pk,
+         ), type=CableTypeChoices.TYPE_POWER, color=ColorChoices.COLOR_BLACK)
+    for pdu, leg in [
+        (pdu_a, "PSU1"),
+        (pdu_b, "PSU2"),
+    ]:
+        make(Cable, dict(
+                termination_a_type=tt_poweroutlet,
+                termination_a_id=PowerOutlet.objects.get(device=pdu, name="OUT1").pk,
+                termination_b_type=tt_powerport,
+                termination_b_id=PowerPort.objects.get(device=device[i]["bdr1"], name=leg).pk,
+             ), type=CableTypeChoices.TYPE_POWER, color=ColorChoices.COLOR_BLACK)
+        make(Cable, dict(
+                termination_a_type=tt_poweroutlet,
+                termination_a_id=PowerOutlet.objects.get(device=pdu, name="OUT2").pk,
+                termination_b_type=tt_powerport,
+                termination_b_id=PowerPort.objects.get(device=device[i]["core1"], name=leg).pk,
+             ), type=CableTypeChoices.TYPE_POWER, color=ColorChoices.COLOR_BLACK)
+        make(Cable, dict(
+                termination_a_type=tt_poweroutlet,
+                termination_a_id=PowerOutlet.objects.get(device=pdu, name="OUT3").pk,
+                termination_b_type=tt_powerport,
+                termination_b_id=PowerPort.objects.get(device=device[i]["srv1"], name=leg).pk,
+             ), type=CableTypeChoices.TYPE_POWER, color=ColorChoices.COLOR_BLACK)
+    # Racks in buildings
+    for b in range(1,3):
+        feed = make(PowerFeed, dict(power_panel=panel, name="b%d-1" % b),
+                    rack=rack[i]["b%d-1" % b],
+                    voltage=230, amperage=13, max_utilization=90)
+        pdu = make(Device, dict(site=site[i], name="pdu-b%d-1" % b),
+                   rack=rack[i]["b%d-1" % b], position=1, face="front",
+                   device_type=device_type["pdu-8-way"],
+                   device_role=device_role["power-distribution"])
+        make(Cable, dict(
+                termination_a_type=tt_powerfeed,
+                termination_a_id=feed.pk,
+                termination_b_type=tt_powerport,
+                termination_b_id=PowerPort.objects.get(device=pdu, name="IN").pk,
+             ), type=CableTypeChoices.TYPE_POWER, color=ColorChoices.COLOR_BLACK)
+        for dev, port, outlet in [
+            ("dist1-b%d" % b, "PSU1", "OUT1"),
+            ("dist1-b%d" % b, "PSU2", "OUT2"),
+            ("edge1-b%d" % b, "PSU1", "OUT3"),
+            ("edge1-b%d" % b, "PSU2", "OUT4"),
+            ("edge2-b%d" % b, "PSU1", "OUT5"),
+            ("edge2-b%d" % b, "PSU2", "OUT6"),
+        ]:
+            make(Cable, dict(
+                    termination_a_type=tt_poweroutlet,
+                    termination_a_id=PowerOutlet.objects.get(device=pdu, name=outlet).pk,
+                    termination_b_type=tt_powerport,
+                    termination_b_id=PowerPort.objects.get(device=device[i][dev], name=port).pk,
+                 ), type=CableTypeChoices.TYPE_POWER, color=ColorChoices.COLOR_BLACK)
+
 # The physical kit
 manuf["intel"] = make(Manufacturer, dict(slug="intel"), name="Intel")
 dt = device_type["nuc6"] = make(DeviceType, dict(slug="nuc6"),
@@ -552,7 +657,8 @@ make(InterfaceTemplate, dict(device_type=dt, name="eno1"),
 make(InterfaceTemplate, dict(device_type=dt, name="wlp3s0"),
     type=InterfaceTypeChoices.TYPE_80211AC)
 make(PowerPortTemplate, dict(device_type=dt, name="PSU"),
-     type=PowerPortTypeChoices.TYPE_IEC_C6)
+     type=PowerPortTypeChoices.TYPE_IEC_C6,
+     allocated_draw=80, maximum_draw=90)
 
 kvm = make(ClusterType, dict(slug="kvm"), name="kvm", description="Linux KVM hypervisor")
 cluster = make(Cluster, dict(name="gns3"), type=kvm, site=nren)
