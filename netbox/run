@@ -9,3 +9,15 @@ systemctl start postgresql redis-server netbox netbox-rq
 source /opt/netbox/venv/bin/activate
 python3 /opt/netbox/netbox/manage.py nbshell <populate.py
 deactivate ""
+
+# Install napalm.  Note that you need to configure "lldp run"
+# on all devices to be able to see lldp neighbors.
+grep napalm /opt/netbox/local_requirements.txt >/dev/null ||
+  echo "napalm" >>/opt/netbox/local_requirements.txt
+( cd /opt/netbox; . venv/bin/activate; pip3 install -r local_requirements.txt )
+
+sed -i -E \
+  -e "s%^#?NAPALM_USERNAME.*%NAPALM_USERNAME = 'nmmlab'%" \
+  -e "s%^#?NAPALM_PASSWORD.*%NAPALM_PASSWORD = 'lab-PW'%" \
+  -e "s%^#?NAPALM_ARGS.*%NAPALM_ARGS = {'secret': 'lab-EN'}%" \
+  /opt/netbox/netbox/netbox/configuration.py
