@@ -2,7 +2,7 @@ from contextlib import suppress
 from django.db.utils import IntegrityError
 from utilities.choices import ColorChoices
 from dcim.choices import InterfaceTypeChoices, PortTypeChoices, PowerPortTypeChoices, ConsolePortTypeChoices, RackTypeChoices
-from ipam.choices import PrefixStatusChoices
+from ipam.choices import PrefixStatusChoices, IPAddressStatusChoices, IPAddressRoleChoices
 
 # Find an item with the given unique filter.  If it exists, update;
 # if it does not exist, create.  Return the object.
@@ -73,9 +73,8 @@ dt = device_type["2u-server"] = make(DeviceType, dict(slug="2u-server"),
     is_full_depth=True,
 )
 for i in range(2):
-    make(InterfaceTemplate, dict(device_type=dt, name="eth%d" % i),
-         type=InterfaceTypeChoices.TYPE_1GE_FIXED,
-         mgmt_only=(i > 0))
+    make(InterfaceTemplate, dict(device_type=dt, name="ens%d" % (i+3)),
+         type=InterfaceTypeChoices.TYPE_1GE_FIXED)
 
 for i in range(1, 3):
     make(PowerPortTemplate, dict(device_type=dt, name="PSU%d" % i),
@@ -129,61 +128,125 @@ for i in range(1,7):
                               rack=rack[i]["c1"], position=42, face="front",
                               device_type=device_type["patch-fibre-12"],
                               device_role=device_role["patching"])
-    device[i]["bdr1"] = make(Device, dict(site=s, name="bdr1"),
+    # bdr1
+    d = device[i]["bdr1"] = make(Device, dict(site=s, name="bdr1"),
                               rack=rack[i]["c1"], position=40, face="front",
                               device_type=device_type["iosv"],
                               device_role=device_role["border-router"],
                               platform=platform["ios-xe"])
-    device[i]["core1"] = make(Device, dict(site=s, name="core1"),
+    intf = make(Interface, dict(device=d, name="GigabitEthernet0/0"))
+    ip4 = make(IPAddress, dict(address="100.68.0.%d/30" % ((i-1)*4 + 2)),
+               assigned_object=intf, dns_name="gi0-0.bdr1.campus%d.ws.nsrc.org" % i)
+    ip6 = make(IPAddress, dict(address="2001:db8:100:%d::1/127" % i),
+               assigned_object=intf, dns_name="gi0-0.bdr1.campus%d.ws.nsrc.org" % i)
+    intf = make(Interface, dict(device=d, name="GigabitEthernet0/1"))
+    ip4 = make(IPAddress, dict(address="100.68.%d.1/28" % i),
+               assigned_object=intf, dns_name="gi0-1.bdr1.campus%d.ws.nsrc.org" % i)
+    ip6 = make(IPAddress, dict(address="2001:db8:%d::1/64" % i),
+               assigned_object=intf, dns_name="gi0-1.bdr1.campus%d.ws.nsrc.org" % i)
+    intf = make(Interface, dict(device=d, name="GigabitEthernet0/2"), enabled=False)
+    ip4 = make(IPAddress, dict(address="100.68.0.%d/30" % ((i-1)*4 + 130)),
+               status=IPAddressStatusChoices.STATUS_RESERVED,
+               assigned_object=intf, dns_name="gi0-2.bdr1.campus%d.ws.nsrc.org" % i)
+    ip6 = make(IPAddress, dict(address="2001:db8:100:%d::1/127" % (i + 31)),
+               status=IPAddressStatusChoices.STATUS_RESERVED,
+               assigned_object=intf, dns_name="gi0-2.bdr1.campus%d.ws.nsrc.org" % i)
+    intf = make(Interface, dict(device=d, name="Loopback0"),
+                type=InterfaceTypeChoices.TYPE_VIRTUAL)
+    ip4 = make(IPAddress, dict(address="100.68.%d.241/32" % i),
+               role=IPAddressRoleChoices.ROLE_LOOPBACK,
+               assigned_object=intf, dns_name="lo0.bdr1.campus%d.ws.nsrc.org" % i)
+    ip6 = make(IPAddress, dict(address="2001:db8:%d:2::241/128" % i),
+               role=IPAddressRoleChoices.ROLE_LOOPBACK,
+               assigned_object=intf, dns_name="lo0.bdr1.campus%d.ws.nsrc.org" % i)
+    d.primary_ip4 = ip4
+    d.primary_ip6 = ip6
+    d.save()
+    # core1
+    d = device[i]["core1"] = make(Device, dict(site=s, name="core1"),
                               rack=rack[i]["c1"], position=39, face="front",
                               device_type=device_type["iosvl2"],
                               device_role=device_role["core-router"],
                               platform=platform["ios-xe"])
-    device[i]["srv1"] = make(Device, dict(site=s, name="srv1"),
+    intf = make(Interface, dict(device=d, name="GigabitEthernet0/0"))
+    ip4 = make(IPAddress, dict(address="100.68.%d.2/28" % i),
+               assigned_object=intf, dns_name="gi0-1.core1.campus%d.ws.nsrc.org" % i)
+    ip6 = make(IPAddress, dict(address="2001:db8:%d::2/64" % i),
+               assigned_object=intf, dns_name="gi0-1.core1.campus%d.ws.nsrc.org" % i)
+    intf = make(Interface, dict(device=d, name="GigabitEthernet0/3"))
+    ip4 = make(IPAddress, dict(address="100.68.%d.129/28" % i),
+               assigned_object=intf, dns_name="gi0-3.core1.campus%d.ws.nsrc.org" % i)
+    ip6 = make(IPAddress, dict(address="2001:db8:%d:1::1/64" % i),
+               assigned_object=intf, dns_name="gi0-3.core1.campus%d.ws.nsrc.org" % i)
+    intf = make(Interface, dict(device=d, name="Loopback0"),
+                type=InterfaceTypeChoices.TYPE_VIRTUAL)
+    ip4 = make(IPAddress, dict(address="100.68.%d.242/32" % i),
+               role=IPAddressRoleChoices.ROLE_LOOPBACK,
+               assigned_object=intf, dns_name="lo0.core1.campus%d.ws.nsrc.org" % i)
+    ip6 = make(IPAddress, dict(address="2001:db8:%d:2::242/128" % i),
+               role=IPAddressRoleChoices.ROLE_LOOPBACK,
+               assigned_object=intf, dns_name="lo0.core1.campus%d.ws.nsrc.org" % i)
+    d.primary_ip4 = ip4
+    d.primary_ip6 = ip6
+    d.save()
+    for vid in [10, 11, 12, 20, 21, 22]:
+        intf = make(Interface, dict(device=d, name="Vlan%d" % vid),
+                    type=InterfaceTypeChoices.TYPE_VIRTUAL)
+        ip4 = make(IPAddress, dict(address="172.%d.%d.1/24" % (i + 20, vid)),
+                   assigned_object=intf, dns_name="vlan%d.core1.campus%d.ws.nsrc.org" % (vid, i))
+        ip6 = make(IPAddress, dict(address="2001:db8:%d:%d::1/64" % (i, vid)),
+                   assigned_object=intf, dns_name="vlan%d.core1.campus%d.ws.nsrc.org" % (vid, i))
+    # srv1
+    d = device[i]["srv1"] = make(Device, dict(site=s, name="srv1"),
                               rack=rack[i]["c1"], position=37, face="front",
                               device_type=device_type["2u-server"],
                               device_role=device_role["monitoring"],
                               platform=platform["ubuntu"])
-    # Building 1
+    intf = make(Interface, dict(device=d, name="br0"),
+                type=InterfaceTypeChoices.TYPE_VIRTUAL)
+    ip4 = make(IPAddress, dict(address="100.68.%d.130/28" % i),
+               assigned_object=intf, dns_name="br0.srv1.campus%d.ws.nsrc.org" % i)
+    ip6 = make(IPAddress, dict(address="2001:db8:%d:1::130/64" % i),
+               assigned_object=intf, dns_name="br0.srv1.campus%d.ws.nsrc.org" % i)
+    d.primary_ip4 = ip4
+    d.primary_ip6 = ip6
+    d.save()
+    intf = make(Interface, dict(device=d, name="br1"),
+                type=InterfaceTypeChoices.TYPE_VIRTUAL)
+    ip4 = make(IPAddress, dict(address="100.64.0.%d/22" % (i*10)),
+               assigned_object=intf, dns_name="br1.srv1.campus%d.ws.nsrc.org" % i)
+    # Patch panels
     device[i]["pp-b1-1"] = make(Device, dict(site=s, name="pp-b1-1"),
                               rack=rack[i]["b1-1"], position=6, face="front",
                               device_type=device_type["patch-fibre-12"],
                               device_role=device_role["patching"])
-    device[i]["dist1-b1"] = make(Device, dict(site=s, name="dist1-b1"),
-                              rack=rack[i]["b1-1"], position=5, face="front",
-                              device_type=device_type["iosvl2"],
-                              device_role=device_role["distribution-switch"],
-                              platform=platform["ios-xe"])
-    device[i]["edge1-b1"] = make(Device, dict(site=s, name="edge1-b1"),
-                              rack=rack[i]["b1-1"], position=4, face="front",
-                              device_type=device_type["iosvl2"],
-                              device_role=device_role["edge-switch"],
-                              platform=platform["ios-xe"])
-    device[i]["edge2-b1"] = make(Device, dict(site=s, name="edge2-b1"),
-                              rack=rack[i]["b1-1"], position=3, face="front",
-                              device_type=device_type["iosvl2"],
-                              device_role=device_role["edge-switch"],
-                              platform=platform["ios-xe"])
-    # Building 2
     device[i]["pp-b2-1"] = make(Device, dict(site=s, name="pp-b2-1"),
                               rack=rack[i]["b2-1"], position=6, face="front",
                               device_type=device_type["patch-fibre-12"],
                               device_role=device_role["patching"])
-    device[i]["dist1-b2"] = make(Device, dict(site=s, name="dist1-b2"),
-                              rack=rack[i]["b2-1"], position=5, face="front",
+    # Switches
+    for name, r, position, role, vid, offset in [
+        ("dist1-b1", "b1-1", 5, "distribution-switch", 10, 2),
+        ("edge1-b1", "b1-1", 4, "edge-switch", 10, 3),
+        ("edge2-b1", "b1-1", 3, "edge-switch", 10, 4),
+        ("dist1-b2", "b2-1", 5, "distribution-switch", 20, 2),
+        ("edge1-b2", "b2-1", 4, "edge-switch", 20, 3),
+        ("edge2-b2", "b2-1", 3, "edge-switch", 20, 4),
+    ]:
+        d = device[i][name] = make(Device, dict(site=s, name=name),
+                              rack=rack[i][r], position=position, face="front",
                               device_type=device_type["iosvl2"],
-                              device_role=device_role["distribution-switch"],
+                              device_role=device_role[role],
                               platform=platform["ios-xe"])
-    device[i]["edge1-b2"] = make(Device, dict(site=s, name="edge1-b2"),
-                              rack=rack[i]["b2-1"], position=4, face="front",
-                              device_type=device_type["iosvl2"],
-                              device_role=device_role["edge-switch"],
-                              platform=platform["ios-xe"])
-    device[i]["edge2-b2"] = make(Device, dict(site=s, name="edge2-b2"),
-                              rack=rack[i]["b2-1"], position=3, face="front",
-                              device_type=device_type["iosvl2"],
-                              device_role=device_role["edge-switch"],
-                              platform=platform["ios-xe"])
+        intf = make(Interface, dict(device=d, name="Vlan%d" % vid),
+                    type=InterfaceTypeChoices.TYPE_VIRTUAL)
+        ip4 = make(IPAddress, dict(address="172.%d.%d.%d/24" % (i + 20, vid, offset)),
+                   assigned_object=intf, dns_name="%s.campus%d.ws.nsrc.org" % (name, i))
+        ip6 = make(IPAddress, dict(address="2001:db8:%d:%d::%d/64" % (i, vid, offset)),
+                   assigned_object=intf, dns_name="%s.campus%d.ws.nsrc.org" % (name, i))
+        d.primary_ip4 = ip4
+        d.primary_ip6 = ip6
+        d.save()
 
 ## IPAM: vlans and subnets
 private = make(RIR, dict(slug="private"), name="Private", is_private=True)
@@ -224,7 +287,7 @@ for i in range(1,7):
          site=site[i],
          description="Router core")
     make(Prefix, dict(prefix="100.68.%d.32/28" % i),
-         site=site[i], status=PrefixStatusChoices.STATUS_CONTAINER,
+         site=site[i],
          description="NAT pool", is_pool=True)
     make(Prefix, dict(prefix="100.68.%d.128/28" % i),
          site=site[i],
@@ -233,10 +296,10 @@ for i in range(1,7):
          site=site[i],
          description="Servers")
     make(Prefix, dict(prefix="100.68.%d.240/28" % i),
-         site=site[i], status=PrefixStatusChoices.STATUS_CONTAINER,
+         site=site[i],
          description="Loopbacks", is_pool=True)
     make(Prefix, dict(prefix="2001:db8:%d:2::/64" % i),
-         site=site[i], status=PrefixStatusChoices.STATUS_CONTAINER,
+         site=site[i],
          description="Loopbacks", is_pool=True)
     for vid, description in [
         (10, "Building 1 Management"),
