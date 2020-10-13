@@ -372,15 +372,20 @@ for i in range(1,7):
     make(Prefix, dict(prefix="2001:db8:%d:2::/64" % i),
          site=site[i],
          description="Loopbacks", is_pool=True)
-    for vid, description in [
-        (10, "Building 1 Management"),
-        (11, "Building 1 Staff"),
-        (12, "Building 1 Student"),
-        (20, "Building 2 Management"),
-        (21, "Building 2 Staff"),
-        (22, "Building 2 Student"),
+    vg1 = make(VLANGroup, dict(site=site[i], slug="building-1"),
+               name="Building 1")
+    vg2 = make(VLANGroup, dict(site=site[i], slug="building-2"),
+               name="Building 2")
+    for group, vid, name, description in [
+        (vg1, 10, "mgmt", "Building 1 Management"),
+        (vg1, 11, "staff", "Building 1 Staff"),
+        (vg1, 12, "student", "Building 1 Student"),
+        (vg2, 20, "mgmt", "Building 2 Management"),
+        (vg2, 21, "staff", "Building 2 Staff"),
+        (vg2, 22, "student", "Building 2 Student"),
     ]:
-        vlan = make(VLAN, dict(site=site[i], vid=vid), description=description)
+        vlan = make(VLAN, dict(site=site[i], vid=vid),
+                    group=group, name=name, description=description)
         make(Prefix, dict(prefix="172.%d.%d.0/24" % (20+i, vid)),
              site=site[i],
              description=description, vlan=vlan)
