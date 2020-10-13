@@ -3,3 +3,9 @@ set -o pipefail
 cd "$(dirname "$0")"
 
 cp index.html /var/www/html/index.html
+
+# Improve source address logging for proxied connections
+cp remoteip.conf /etc/apache2/conf-available/
+a2enmod remoteip
+a2enconf remoteip
+systemctl reload apache2
