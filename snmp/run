@@ -3,7 +3,14 @@ set -o pipefail
 cd "$(dirname "$0")"
 
 # This makes snmpd less verbose in syslog
-sed -i 's/-Lsd/-LSwd/' /etc/default/snmpd
+mkdir -p /etc/systemd/system/snmpd.service.d
+(
+cat <<EOS
+[Service]
+ExecStart=
+EOS
+grep ^ExecStart= /lib/systemd/system/snmpd.service | sed -e 's/ -L[^ ]*/ -LSwd/'
+) >/etc/systemd/system/snmpd.service.d/override.conf
 
 cp snmp.conf /etc/snmp/snmp.conf
 cp snmpd.conf /etc/snmp/snmpd.conf
