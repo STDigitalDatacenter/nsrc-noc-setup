@@ -2,7 +2,7 @@
 set -o pipefail
 cd "$(dirname "$0")"
 
-cp index.html /var/www/html/index.html
+cp index.${LANGUAGE_TAG:-en}.html /var/www/html/index.html
 
 # Improve source address logging for proxied connections
 cp remoteip.conf /etc/apache2/conf-available/

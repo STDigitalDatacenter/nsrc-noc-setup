@@ -3,5 +3,5 @@ cd "$(dirname "$0")"
 
 for task in snmp cacti librenms nagios nfsen rancid smokeping prometheus grafana syslog netbox oxidized noc; do
   echo "==== $task ===="
-  sudo $task/run || echo "FAILED: $?"
+  sudo "LANGUAGE_TAG=${LANGUAGE_TAG:-en}" $task/run || echo "FAILED: $?"
 done
