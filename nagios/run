@@ -203,5 +203,10 @@ define servicegroup {
 EOS
 ) >/etc/nagios3/conf.d/nmm.cfg
 
+# Enable external commands (e.g. rescheduling of checks, acknowledging problems)
+sed -i -e 's/^check_external_commands=0/check_external_commands=1/' /etc/nagios3/nagios.cfg
+dpkg-statoverride --update --add nagios www-data 2710 /var/lib/nagios3/rw
+dpkg-statoverride --update --add nagios nagios 751 /var/lib/nagios3
+
 systemctl enable nagios3
 systemctl restart nagios3
