@@ -6,6 +6,13 @@ modules:
       preferred_ip_protocol: ip4
       ip_protocol_fallback: false
 
+  ping6:
+    prober: icmp
+    timeout: 3s
+    icmp:
+      preferred_ip_protocol: ip6
+      ip_protocol_fallback: false
+
   # Check DNS recursor with query for "nsrc.org"
   dns_udp4_nsrc.org:
     prober: dns

@@ -2,10 +2,21 @@
 set -o pipefail
 cd "$(dirname "$0")"
 
-# Add SNMPv3
-for host in noc.ws.nsrc.org gw.ws.nsrc.org sw.ws.nsrc.org transit{1,2}.nren.ws.nsrc.org \
-    bdr1.campus{1..6}.ws.nsrc.org core1.campus{1..6}.ws.nsrc.org; do
+# Add SNMPv3 (IPv4)
+for host in gw.ws.nsrc.org sw.ws.nsrc.org; do \
   sudo -u librenms /opt/librenms/addhost.php -f "$host" authNoPriv v3 admin NetManage sha || {
+    rc="$?"
+    [ "$rc" -eq 3 ] || echo "$host: unexpected result: $rc"
+  }
+done
+
+# Add SNMPv3 (IPv6)
+for host in noc.ws.nsrc.org transit{1,2}.nren.ws.nsrc.org \
+    bdr1.campus{1..6}.ws.nsrc.org core1.campus{1..6}.ws.nsrc.org \
+    dist1-b1.campus{1..6}.ws.nsrc.org dist1-b2.campus{1..6}.ws.nsrc.org \
+    edge1-b1.campus{1..6}.ws.nsrc.org edge2-b1.campus{1..6}.ws.nsrc.org \
+    edge2-b2.campus{1..6}.ws.nsrc.org edge2-b2.campus{1..6}.ws.nsrc.org; do
+  sudo -u librenms /opt/librenms/addhost.php -f "$host" authNoPriv v3 admin NetManage sha udp6 || {
     rc="$?"
     [ "$rc" -eq 3 ] || echo "$host: unexpected result: $rc"
   }

@@ -3,6 +3,7 @@ set -o pipefail
 cd "$(dirname "$0")"
 
 # We are dual-stack.  Frig to add check_v46 for all pre-defined checks
+# (note: only works for plugins with -H arg; check_ssh doesn't have this)
 perl -npe '$_ = "$1/usr/lib/nagios/plugins/check_v46 -H $3 $2$4\n" if not /\s-[46]|--use-ipv|check_v46/ and /^(\s*command_line\s+)(.*)\s+-H\s+(\S+)(.*)$/' -i.orig /etc/nagios-plugins/config/*.cfg
 
 # Deploy a basic config
@@ -79,8 +80,61 @@ define host {
   hostgroups	routers,ssh-servers,snmp-servers
 }
 
-# Note: dist and edge switches are not directly reachable from the NOC.
-# But they would be reachable via NRPE or blackbox_exporter on srv1 (TODO).
+# Note: dist and edge switches are only be reachable via IPv6 from the NOC
+
+define host {
+  use		generic-host
+  check_command check-host-alive_6
+  host_name	dist1-b1.campus$x
+  address	dist1-b1.campus$x.ws.nsrc.org
+  parents	core1.campus$x
+  hostgroups	switches-v6,ssh-servers-v6,snmp-servers-v6
+}
+
+define host {
+  use		generic-host
+  check_command check-host-alive_6
+  host_name	dist1-b2.campus$x
+  address	dist1-b2.campus$x.ws.nsrc.org
+  parents	core1.campus$x
+  hostgroups	switches-v6,ssh-servers-v6,snmp-servers-v6
+}
+
+define host {
+  use		generic-host
+  check_command check-host-alive_6
+  host_name	edge1-b1.campus$x
+  address	edge1-b1.campus$x.ws.nsrc.org
+  parents	dist1-b1.campus$x
+  hostgroups	switches-v6,ssh-servers-v6,snmp-servers-v6
+}
+
+define host {
+  use		generic-host
+  check_command check-host-alive_6
+  host_name	edge1-b2.campus$x
+  address	edge1-b2.campus$x.ws.nsrc.org
+  parents	dist1-b2.campus$x
+  hostgroups	switches-v6,ssh-servers-v6,snmp-servers-v6
+}
+
+define host {
+  use		generic-host
+  check_command check-host-alive_6
+  host_name	edge2-b1.campus$x
+  address	edge2-b1.campus$x.ws.nsrc.org
+  parents	dist1-b1.campus$x
+  hostgroups	switches-v6,ssh-servers-v6,snmp-servers-v6
+}
+
+define host {
+  use		generic-host
+  check_command check-host-alive_6
+  host_name	edge2-b2.campus$x
+  address	edge2-b2.campus$x.ws.nsrc.org
+  parents	dist1-b2.campus$x
+  hostgroups	switches-v6,ssh-servers-v6,snmp-servers-v6
+}
 
 define host {
   use		generic-host
@@ -152,6 +206,20 @@ define hostextinfo {
 }
 
 define hostgroup {
+  hostgroup_name  switches-v6
+  alias           Switches IPv6
+}
+
+define hostextinfo {
+        hostgroup_name   switches-v6
+        notes            Class switch
+        icon_image       cook/switch.png
+        icon_image_alt   Class switch
+        vrml_image       switch.png
+        statusmap_image  cook/switch.gd2
+}
+
+define hostgroup {
   hostgroup_name  snmp-servers
   alias           SNMP Servers
 }
@@ -167,7 +235,44 @@ define service {
 define command {
        command_name    check_system
        # Check that sysDescr.0 responds
-       command_line    /usr/lib/nagios/plugins/check_snmp -H '\$HOSTADDRESS\$' -C '\$ARG1\$' -o .1.3.6.1.2.1.1.1.0
+       command_line    /usr/lib/nagios/plugins/check_v46 -H '\$HOSTADDRESS\$' /usr/lib/nagios/plugins/check_snmp -C '\$ARG1\$' -o .1.3.6.1.2.1.1.1.0
+}
+
+define hostgroup {
+  hostgroup_name  snmp-servers-v6
+  alias           SNMP Servers IPv6
+}
+
+define service {
+        hostgroup_name                  snmp-servers-v6
+        service_description             SNMP
+        check_command                   check_system_6!NetManage
+        use                             generic-service
+        notification_interval           0 ; set > 0 if you want to be renotified
+}
+
+define command {
+       command_name    check_system_6
+       # Check that sysDescr.0 responds.  Note bug in plugin: -6 flag doesn't work, workaround is to use udp6: prefix
+       command_line    /usr/lib/nagios/plugins/check_snmp -H 'udp6:\$HOSTADDRESS\$' -C '\$ARG1\$' -o .1.3.6.1.2.1.1.1.0
+}
+
+define hostgroup {
+        hostgroup_name          ssh-servers-v6
+                alias           SSH servers IPv6
+        }
+
+define service {
+        hostgroup_name                  ssh-servers-v6
+        service_description             SSH
+        check_command                   check_ssh_6
+        use                             generic-service
+        notification_interval           0 ; set > 0 if you want to be renotified
+}
+
+define command{
+        command_name    check_ssh_6
+        command_line    /usr/lib/nagios/plugins/check_ssh -6 '\$HOSTADDRESS\$'
 }
 
 define hostgroup {
@@ -187,26 +292,64 @@ define command{
   command_line    /usr/lib/nagios/plugins/check_http -H '\$HOSTADDRESS\$' -u '\$ARG1\$' -a '\$ARG2\$'
 }
 
+define command{
+        command_name    check-host-alive_6
+        command_line    /usr/lib/nagios/plugins/check_ping -H '\$HOSTADDRESS\$' -w 5000,100% -c 5000,100% -p 1 -6
+}
+
 # Service groups
 
 define servicegroup {
   servicegroup_name   router_ssh
   alias               Routers accepting SSH
-  members             bdr1.campus1,SSH,bdr1.campus2,SSH,bdr1.campus3,SSH,bdr1.campus4,SSH,bdr1.campus5,SSH,bdr1.campus6,SSH
+  members             bdr1.campus1,SSH,core1.campus1,SSH,\
+                      bdr1.campus2,SSH,core1.campus2,SSH,\
+                      bdr1.campus3,SSH,core1.campus3,SSH,\
+                      bdr1.campus4,SSH,core1.campus4,SSH,\
+                      bdr1.campus5,SSH,core1.campus5,SSH,\
+                      bdr1.campus6,SSH,core1.campus6,SSH
 }
 
 define servicegroup {
   servicegroup_name   router_snmp
   alias               Routers accepting SNMP
-  members             bdr1.campus1,SNMP,bdr1.campus2,SNMP,bdr1.campus3,SNMP,bdr1.campus4,SNMP,bdr1.campus5,SNMP,bdr1.campus6,SNMP
+  members             bdr1.campus1,SNMP,core1.campus1,SNMP,\
+                      bdr1.campus2,SNMP,core1.campus2,SNMP,\
+                      bdr1.campus3,SNMP,core1.campus3,SNMP,\
+                      bdr1.campus4,SNMP,core1.campus4,SNMP,\
+                      bdr1.campus5,SNMP,core1.campus5,SNMP,\
+                      bdr1.campus6,SNMP,core1.campus6,SNMP
+}
+
+define servicegroup {
+  servicegroup_name   switch_ssh
+  alias               Switches accepting SSH
+  members             dist1-b1.campus1,SSH,dist1-b2.campus1,SSH,edge1-b1.campus1,SSH,edge2-b1.campus1,SSH,edge1-b2.campus1,SSH,edge2-b2.campus1,SSH,\
+                      dist1-b1.campus2,SSH,dist1-b2.campus2,SSH,edge1-b1.campus2,SSH,edge2-b1.campus2,SSH,edge1-b2.campus2,SSH,edge2-b2.campus2,SSH,\
+                      dist1-b1.campus3,SSH,dist1-b2.campus3,SSH,edge1-b1.campus3,SSH,edge2-b1.campus3,SSH,edge1-b2.campus3,SSH,edge2-b2.campus3,SSH,\
+                      dist1-b1.campus4,SSH,dist1-b2.campus4,SSH,edge1-b1.campus4,SSH,edge2-b1.campus4,SSH,edge1-b2.campus4,SSH,edge2-b2.campus4,SSH,\
+                      dist1-b1.campus5,SSH,dist1-b2.campus5,SSH,edge1-b1.campus5,SSH,edge2-b1.campus5,SSH,edge1-b2.campus5,SSH,edge2-b2.campus5,SSH,\
+                      dist1-b1.campus6,SSH,dist1-b2.campus6,SSH,edge1-b1.campus6,SSH,edge2-b1.campus6,SSH,edge1-b2.campus6,SSH,edge2-b2.campus6,SSH
+}
+
+define servicegroup {
+  servicegroup_name   switch_snmp
+  alias               Switches accepting SNMP
+  members             dist1-b1.campus1,SNMP,dist1-b2.campus1,SNMP,edge1-b1.campus1,SNMP,edge2-b1.campus1,SNMP,edge1-b2.campus1,SNMP,edge2-b2.campus1,SNMP,\
+                      dist1-b1.campus2,SNMP,dist1-b2.campus2,SNMP,edge1-b1.campus2,SNMP,edge2-b1.campus2,SNMP,edge1-b2.campus2,SNMP,edge2-b2.campus2,SNMP,\
+                      dist1-b1.campus3,SNMP,dist1-b2.campus3,SNMP,edge1-b1.campus3,SNMP,edge2-b1.campus3,SNMP,edge1-b2.campus3,SNMP,edge2-b2.campus3,SNMP,\
+                      dist1-b1.campus4,SNMP,dist1-b2.campus4,SNMP,edge1-b1.campus4,SNMP,edge2-b1.campus4,SNMP,edge1-b2.campus4,SNMP,edge2-b2.campus4,SNMP,\
+                      dist1-b1.campus5,SNMP,dist1-b2.campus5,SNMP,edge1-b1.campus5,SNMP,edge2-b1.campus5,SNMP,edge1-b2.campus5,SNMP,edge2-b2.campus5,SNMP,\
+                      dist1-b1.campus6,SNMP,dist1-b2.campus6,SNMP,edge1-b1.campus6,SNMP,edge2-b1.campus6,SNMP,edge1-b2.campus6,SNMP,edge2-b2.campus6,SNMP
 }
 EOS
 ) >/etc/nagios3/conf.d/nmm.cfg
 
 # Enable external commands (e.g. rescheduling of checks, acknowledging problems)
 sed -i -e 's/^check_external_commands=0/check_external_commands=1/' /etc/nagios3/nagios.cfg
-dpkg-statoverride --update --add nagios www-data 2710 /var/lib/nagios3/rw
-dpkg-statoverride --update --add nagios nagios 751 /var/lib/nagios3
+# Use --force to allow this script to be run multiple times
+dpkg-statoverride --update --force --add nagios www-data 2710 /var/lib/nagios3/rw
+dpkg-statoverride --update --force --add nagios nagios 751 /var/lib/nagios3
 
 systemctl enable nagios3
 systemctl restart nagios3
